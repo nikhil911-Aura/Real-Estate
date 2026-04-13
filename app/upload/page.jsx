@@ -129,24 +129,49 @@ function UploadCard({ title, description, uploadUrl, type, initialResult }) {
     setUploading(true);
     setError(null);
     setResult(null);
-    setJob({ progress: 0, message: 'Uploading...' });
+    setJob({ progress: 0, message: 'Uploading file to server...' });
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch(uploadUrl, { method: 'POST', body: formData });
-      const data = await res.json();
+    const formData = new FormData();
+    formData.append('file', file);
 
-      if (data.jobId) {
-        pollJob(data.jobId);
-      } else {
-        setError(data.error || 'Upload failed');
+    // Use XMLHttpRequest for upload progress tracking
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        const mbSent = (e.loaded / 1024 / 1024).toFixed(1);
+        const mbTotal = (e.total / 1024 / 1024).toFixed(1);
+        setJob({ progress: pct, message: `Uploading file... ${mbSent} / ${mbTotal} MB` });
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (data.jobId) {
+          setJob({ progress: 100, message: 'Upload complete, processing...' });
+          setTimeout(() => {
+            setJob({ progress: 0, message: 'Starting processing...' });
+            pollJob(data.jobId);
+          }, 500);
+        } else {
+          setError(data.error || 'Upload failed');
+          setUploading(false);
+        }
+      } catch (err) {
+        setError('Upload failed: invalid response');
         setUploading(false);
       }
-    } catch (err) {
-      setError('Upload failed: ' + err.message);
+    });
+
+    xhr.addEventListener('error', () => {
+      setError('Upload failed: network error');
       setUploading(false);
-    }
+    });
+
+    xhr.open('POST', uploadUrl);
+    xhr.send(formData);
   };
 
   return (
