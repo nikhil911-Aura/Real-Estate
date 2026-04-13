@@ -48,9 +48,15 @@ export default function OpportunitiesPage() {
 
   const fetchZipCodes = useCallback(async () => {
     try {
-      const res = await fetch('/api/zip-models');
-      const data = await res.json();
-      setZipCodes(data.map(z => z.zip_code));
+      // Get all unique ZIPs from opportunities, not just zip_models
+      const res = await fetch('/api/opportunities?limit=1');
+      const statsRes = await fetch('/api/stats');
+      const statsData = await statsRes.json();
+      // Use top_zips + get distinct zips from a dedicated query
+      const zipRes = await fetch('/api/zip-models');
+      const zipData = await zipRes.json();
+      const zips = [...new Set(zipData.map(z => z.zip_code))].sort();
+      setZipCodes(zips);
     } catch (err) {
       console.error('Failed to fetch ZIP codes:', err);
     }
@@ -91,7 +97,7 @@ export default function OpportunitiesPage() {
 
       {/* Filter Bar */}
       <div className="mb-6">
-        <FilterBar filters={filters} onFilterChange={handleFilterChange} zipCodes={zipCodes} />
+        <FilterBar filters={filters} onFilterChange={handleFilterChange} zipCodes={zipCodes} stats={stats} />
       </div>
 
       {/* Opportunity Cards */}
