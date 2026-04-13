@@ -3,9 +3,9 @@ const nextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '200mb'
-    }
-  },
-  serverExternalPackages: ['better-sqlite3']
+    },
+    serverComponentsExternalPackages: ['better-sqlite3']
+  }
 }
 
 module.exports = nextConfig

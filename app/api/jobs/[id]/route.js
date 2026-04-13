@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request, { params }) {
   const jobs = require('../../../../lib/jobs');
   const job = jobs.get(params.id);
