@@ -6,6 +6,7 @@ import os from 'os';
 import { constants } from 'fs';
 
 export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
 
 async function fileExists(p) {
   try { await access(p, constants.F_OK); return true; }
