@@ -3,10 +3,27 @@
 import { useState, useCallback, useEffect } from 'react';
 import ProgressBar from '../../components/ProgressBar';
 
-function ResultCard({ result, type }) {
+function ResultCard({ result, type, onDelete }) {
   if (!result) return null;
 
   const isHistorical = type === 'historical';
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm(isHistorical
+      ? 'This will delete all historical flips, ZIP models, and scored opportunities. Continue?'
+      : 'This will delete all scored opportunities. Continue?'
+    )) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/uploads/${type}`, { method: 'DELETE' });
+      if (res.ok && onDelete) onDelete();
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+    setDeleting(false);
+  };
 
   return (
     <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
@@ -14,12 +31,21 @@ function ResultCard({ result, type }) {
         <p className="text-sm font-semibold text-green-800">
           {result._fromDb ? 'Last Upload' : 'Upload Complete'}
         </p>
-        {result._fromDb && result.filename && (
-          <span className="text-xs text-gray-500">{result.filename}</span>
-        )}
-        {result._fromDb && result.uploaded_at && (
-          <span className="text-xs text-gray-400">{new Date(result.uploaded_at + 'Z').toLocaleString()}</span>
-        )}
+        <div className="flex items-center gap-3">
+          {result._fromDb && result.filename && (
+            <span className="text-xs text-gray-500">{result.filename}</span>
+          )}
+          {result._fromDb && result.uploaded_at && (
+            <span className="text-xs text-gray-400">{new Date(result.uploaded_at + 'Z').toLocaleString()}</span>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
       </div>
       {isHistorical && result.flips_confirmed !== undefined && (
         <>
@@ -78,7 +104,7 @@ function ResultCard({ result, type }) {
   );
 }
 
-function UploadCard({ title, description, uploadUrl, type, initialResult }) {
+function UploadCard({ title, description, uploadUrl, type, initialResult, onDataDeleted }) {
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -225,7 +251,10 @@ function UploadCard({ title, description, uploadUrl, type, initialResult }) {
         </div>
       )}
 
-      <ResultCard result={displayResult} type={type} />
+      <ResultCard result={displayResult} type={type} onDelete={() => {
+        setResult(null);
+        if (onDataDeleted) onDataDeleted();
+      }} />
     </div>
   );
 }
@@ -233,7 +262,7 @@ function UploadCard({ title, description, uploadUrl, type, initialResult }) {
 export default function UploadPage() {
   const [lastUploads, setLastUploads] = useState({ historical: null, active: null });
 
-  useEffect(() => {
+  const fetchUploads = () => {
     fetch('/api/uploads')
       .then(res => res.json())
       .then(data => setLastUploads({
@@ -241,7 +270,17 @@ export default function UploadPage() {
         active: data.active ? { ...data.active, _fromDb: true } : null
       }))
       .catch(() => {});
-  }, []);
+  };
+
+  useEffect(() => { fetchUploads(); }, []);
+
+  const handleHistoricalDeleted = () => {
+    setLastUploads({ historical: null, active: null });
+  };
+
+  const handleActiveDeleted = () => {
+    setLastUploads(prev => ({ ...prev, active: null }));
+  };
 
   return (
     <div>
@@ -255,6 +294,7 @@ export default function UploadPage() {
           uploadUrl="/api/upload/historical"
           type="historical"
           initialResult={lastUploads.historical}
+          onDataDeleted={handleHistoricalDeleted}
         />
         <UploadCard
           title="Active Listings"
@@ -262,6 +302,7 @@ export default function UploadPage() {
           uploadUrl="/api/upload/active"
           type="active"
           initialResult={lastUploads.active}
+          onDataDeleted={handleActiveDeleted}
         />
       </div>
     </div>
