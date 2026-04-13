@@ -1,11 +1,32 @@
 import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
+
+async function streamToFile(readableStream, filePath) {
+  const writableStream = fs.createWriteStream(filePath);
+  const reader = readableStream.getReader();
+
+  return new Promise((resolve, reject) => {
+    function push() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          writableStream.end();
+          resolve();
+          return;
+        }
+        writableStream.write(Buffer.from(value), (err) => {
+          if (err) reject(err);
+          else push();
+        });
+      }).catch(reject);
+    }
+    push();
+  });
+}
 
 export async function POST(request) {
   try {
@@ -16,20 +37,18 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
     // Save to data/ dir so it persists for re-scoring after historical re-upload
     const dataDir = path.join(process.cwd(), 'data');
     fs.mkdirSync(dataDir, { recursive: true });
     const filePath = path.join(dataDir, 'last_active_upload.csv');
-    await writeFile(filePath, buffer);
+
+    await streamToFile(file.stream(), filePath);
 
     const jobId = crypto.randomUUID();
     const jobs = require('../../../../lib/jobs');
     jobs.create(jobId);
+    const fileName = file.name;
 
-    // Start async processing - do not await
     (async () => {
       try {
         const { runDetectionEngine } = require('../../../../lib/engines/detection');
@@ -44,7 +63,7 @@ export async function POST(request) {
         db.prepare(`
           INSERT INTO uploads_log (filename, upload_type, rows_processed, opportunities_scored)
           VALUES (?, 'active', ?, ?)
-        `).run(file.name, result.rows_processed, result.total_scored);
+        `).run(fileName, result.rows_processed, result.total_scored);
 
         jobs.update(jobId, {
           status: 'done',
