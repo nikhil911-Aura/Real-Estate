@@ -16,6 +16,8 @@ export default function MarketPage() {
   const [stats, setStats] = useState(null);
   const [expandedZip, setExpandedZip] = useState(null);
   const [zipFlips, setZipFlips] = useState({});
+  const [zipPage, setZipPage] = useState(1);
+  const zipPerPage = 10;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -120,8 +122,9 @@ export default function MarketPage() {
 
       {/* ZIP Models Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">ZIP Models</h2>
+          <span className="text-sm text-gray-500">{models.length} ZIP codes</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -141,7 +144,7 @@ export default function MarketPage() {
               </tr>
             </thead>
             <tbody>
-              {models.map((m) => (
+              {models.slice((zipPage - 1) * zipPerPage, zipPage * zipPerPage).map((m) => (
                 <>
                   <tr
                     key={m.zip_code}
@@ -188,6 +191,33 @@ export default function MarketPage() {
             </tbody>
           </table>
         </div>
+        {/* Pagination */}
+        {models.length > zipPerPage && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+            <span className="text-sm text-gray-500">
+              Showing {((zipPage - 1) * zipPerPage) + 1}–{Math.min(zipPage * zipPerPage, models.length)} of {models.length}
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setZipPage(p => Math.max(1, p - 1)); setExpandedZip(null); }}
+                disabled={zipPage === 1}
+                className="px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg disabled:opacity-50 hover:bg-gray-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {zipPage} of {Math.ceil(models.length / zipPerPage)}
+              </span>
+              <button
+                onClick={() => { setZipPage(p => Math.min(Math.ceil(models.length / zipPerPage), p + 1)); setExpandedZip(null); }}
+                disabled={zipPage >= Math.ceil(models.length / zipPerPage)}
+                className="px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg disabled:opacity-50 hover:bg-gray-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
