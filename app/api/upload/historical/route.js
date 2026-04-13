@@ -64,13 +64,15 @@ export async function POST(request) {
         const { runDetectionEngine, getLastActiveCsvPath } = require('../../../../lib/engines/detection');
         const db = require('../../../../lib/db');
 
-        jobs.update(jobId, { progress: 5, message: 'Detecting flips...' });
+        jobs.update(jobId, { progress: 2, message: 'Starting flip detection...' });
 
         const truthResult = await runTruthEngine(filePath, (progress, message) => {
-          jobs.update(jobId, { progress: Math.min(Math.round(progress * 0.4), 40), message });
+          // Truth engine progress 0-70 maps to job progress 2-55
+          const jobProgress = Math.min(Math.round(2 + (progress / 70) * 53), 55);
+          jobs.update(jobId, { progress: jobProgress, message });
         });
 
-        jobs.update(jobId, { progress: 45, message: 'Building ZIP models...' });
+        jobs.update(jobId, { progress: 58, message: 'Building ZIP models...' });
 
         const marketResult = buildMarketModels((progress, message) => {
           jobs.update(jobId, { progress: Math.min(Math.round(45 + progress * 0.2), 65), message });
