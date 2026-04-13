@@ -1,5 +1,6 @@
 import './globals.css';
 import Sidebar from '../components/Sidebar';
+import PageLoader from '../components/PageLoader';
 
 export const metadata = {
   title: 'Jenkins Homebuyers — Flip Detection Platform',
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <Sidebar />
+        <PageLoader />
         <main className="ml-64 min-h-screen p-8">
           {children}
         </main>
