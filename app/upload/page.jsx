@@ -1,15 +1,92 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import ProgressBar from '../../components/ProgressBar';
 
-function UploadCard({ title, description, uploadUrl, onComplete }) {
+function ResultCard({ result, type }) {
+  if (!result) return null;
+
+  const isHistorical = type === 'historical';
+
+  return (
+    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold text-green-800">
+          {result._fromDb ? 'Last Upload' : 'Upload Complete'}
+        </p>
+        {result._fromDb && result.filename && (
+          <span className="text-xs text-gray-500">{result.filename}</span>
+        )}
+        {result._fromDb && result.uploaded_at && (
+          <span className="text-xs text-gray-400">{new Date(result.uploaded_at + 'Z').toLocaleString()}</span>
+        )}
+      </div>
+      {isHistorical && result.flips_confirmed !== undefined && (
+        <>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="text-gray-600">Total records in file:</div>
+            <div className="font-semibold text-gray-900">{(result.rows_processed || 0).toLocaleString()}</div>
+            <div className="text-gray-600">Flips detected:</div>
+            <div className="font-semibold text-gray-900">{result.flips_confirmed}</div>
+            <div className="text-gray-600">Tier A:</div>
+            <div className="font-semibold text-green-600">{result.tier_counts?.A || 0}</div>
+            <div className="text-gray-600">Tier B:</div>
+            <div className="font-semibold text-blue-600">{result.tier_counts?.B || 0}</div>
+            <div className="text-gray-600">Tier C:</div>
+            <div className="font-semibold text-amber-600">{result.tier_counts?.C || 0}</div>
+            <div className="text-gray-600">Tier D:</div>
+            <div className="font-semibold text-gray-600">{result.tier_counts?.D || 0}</div>
+            <div className="text-gray-600">ZIP models built:</div>
+            <div className="font-semibold text-gray-900">{result.models_built || 0}</div>
+          </div>
+          {result.rescore && (
+            <div className="mt-3 pt-3 border-t border-green-200">
+              <p className="text-sm font-semibold text-green-800 mb-2">Active Listings Re-scored</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="text-gray-600">Listings re-scored:</div>
+                <div className="font-semibold text-gray-900">{result.rescore.total_scored}</div>
+                <div className="text-gray-600">HOT:</div>
+                <div className="font-semibold text-red-600">{result.rescore.bucket_counts?.HOT || 0}</div>
+                <div className="text-gray-600">UNDERWRITE:</div>
+                <div className="font-semibold text-orange-600">{result.rescore.bucket_counts?.UNDERWRITE || 0}</div>
+                <div className="text-gray-600">WATCH:</div>
+                <div className="font-semibold text-yellow-600">{result.rescore.bucket_counts?.WATCH || 0}</div>
+                <div className="text-gray-600">SUPPRESSED:</div>
+                <div className="font-semibold text-gray-500">{result.rescore.bucket_counts?.SUPPRESSED || 0}</div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {!isHistorical && result.bucket_counts !== undefined && (
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="text-gray-600">Total records in file:</div>
+          <div className="font-semibold text-gray-900">{(result.rows_processed || 0).toLocaleString()}</div>
+          <div className="text-gray-600">Listings scored:</div>
+          <div className="font-semibold text-gray-900">{result.total_scored}</div>
+          <div className="text-gray-600">HOT:</div>
+          <div className="font-semibold text-red-600">{result.bucket_counts?.HOT || 0}</div>
+          <div className="text-gray-600">UNDERWRITE:</div>
+          <div className="font-semibold text-orange-600">{result.bucket_counts?.UNDERWRITE || 0}</div>
+          <div className="text-gray-600">WATCH:</div>
+          <div className="font-semibold text-yellow-600">{result.bucket_counts?.WATCH || 0}</div>
+          <div className="text-gray-600">SUPPRESSED:</div>
+          <div className="font-semibold text-gray-500">{result.bucket_counts?.SUPPRESSED || 0}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UploadCard({ title, description, uploadUrl, type, initialResult }) {
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [job, setJob] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const displayResult = result || initialResult;
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -34,7 +111,6 @@ function UploadCard({ title, description, uploadUrl, onComplete }) {
           clearInterval(poll);
           setUploading(false);
           setResult(data.result);
-          if (onComplete) onComplete(data.result);
         } else if (data.status === 'error') {
           clearInterval(poll);
           setUploading(false);
@@ -124,69 +200,24 @@ function UploadCard({ title, description, uploadUrl, onComplete }) {
         </div>
       )}
 
-      {result && (
-        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
-          <p className="text-sm font-semibold text-green-800 mb-2">Upload Complete</p>
-          {result.flips_confirmed !== undefined && (
-            <>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-gray-600">Total records in file:</div>
-                <div className="font-semibold text-gray-900">{(result.rows_processed || 0).toLocaleString()}</div>
-                <div className="text-gray-600">Flips detected:</div>
-                <div className="font-semibold text-gray-900">{result.flips_confirmed}</div>
-                <div className="text-gray-600">Tier A:</div>
-                <div className="font-semibold text-green-600">{result.tier_counts?.A || 0}</div>
-                <div className="text-gray-600">Tier B:</div>
-                <div className="font-semibold text-blue-600">{result.tier_counts?.B || 0}</div>
-                <div className="text-gray-600">Tier C:</div>
-                <div className="font-semibold text-amber-600">{result.tier_counts?.C || 0}</div>
-                <div className="text-gray-600">Tier D:</div>
-                <div className="font-semibold text-gray-600">{result.tier_counts?.D || 0}</div>
-                <div className="text-gray-600">ZIP models built:</div>
-                <div className="font-semibold text-gray-900">{result.models_built || 0}</div>
-              </div>
-              {result.rescore && (
-                <div className="mt-3 pt-3 border-t border-green-200">
-                  <p className="text-sm font-semibold text-green-800 mb-2">Active Listings Re-scored</p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="text-gray-600">Listings re-scored:</div>
-                    <div className="font-semibold text-gray-900">{result.rescore.total_scored}</div>
-                    <div className="text-gray-600">HOT:</div>
-                    <div className="font-semibold text-red-600">{result.rescore.bucket_counts?.HOT || 0}</div>
-                    <div className="text-gray-600">UNDERWRITE:</div>
-                    <div className="font-semibold text-orange-600">{result.rescore.bucket_counts?.UNDERWRITE || 0}</div>
-                    <div className="text-gray-600">WATCH:</div>
-                    <div className="font-semibold text-yellow-600">{result.rescore.bucket_counts?.WATCH || 0}</div>
-                    <div className="text-gray-600">SUPPRESSED:</div>
-                    <div className="font-semibold text-gray-500">{result.rescore.bucket_counts?.SUPPRESSED || 0}</div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-          {result.bucket_counts !== undefined && !result.flips_confirmed && (
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="text-gray-600">Total records in file:</div>
-              <div className="font-semibold text-gray-900">{(result.rows_processed || 0).toLocaleString()}</div>
-              <div className="text-gray-600">Listings scored:</div>
-              <div className="font-semibold text-gray-900">{result.total_scored}</div>
-              <div className="text-gray-600">HOT:</div>
-              <div className="font-semibold text-red-600">{result.bucket_counts?.HOT || 0}</div>
-              <div className="text-gray-600">UNDERWRITE:</div>
-              <div className="font-semibold text-orange-600">{result.bucket_counts?.UNDERWRITE || 0}</div>
-              <div className="text-gray-600">WATCH:</div>
-              <div className="font-semibold text-yellow-600">{result.bucket_counts?.WATCH || 0}</div>
-              <div className="text-gray-600">SUPPRESSED:</div>
-              <div className="font-semibold text-gray-500">{result.bucket_counts?.SUPPRESSED || 0}</div>
-            </div>
-          )}
-        </div>
-      )}
+      <ResultCard result={displayResult} type={type} />
     </div>
   );
 }
 
 export default function UploadPage() {
+  const [lastUploads, setLastUploads] = useState({ historical: null, active: null });
+
+  useEffect(() => {
+    fetch('/api/uploads')
+      .then(res => res.json())
+      .then(data => setLastUploads({
+        historical: data.historical ? { ...data.historical, _fromDb: true } : null,
+        active: data.active ? { ...data.active, _fromDb: true } : null
+      }))
+      .catch(() => {});
+  }, []);
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Data Upload</h1>
@@ -197,11 +228,15 @@ export default function UploadPage() {
           title="Historical Sold Data"
           description="Upload 3 years of sold records from Realtracs MLS"
           uploadUrl="/api/upload/historical"
+          type="historical"
+          initialResult={lastUploads.historical}
         />
         <UploadCard
           title="Active Listings"
           description="Upload current active MLS listings"
           uploadUrl="/api/upload/active"
+          type="active"
+          initialResult={lastUploads.active}
         />
       </div>
     </div>
