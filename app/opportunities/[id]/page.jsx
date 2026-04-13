@@ -56,11 +56,49 @@ export default function DealDetailPage() {
     if (res.ok) { setStatus('Rejected'); setShowRejectModal(false); }
   }
 
+  const medianBuy = zipModel ? formatPrice(zipModel.median_buy_price) : '—';
+  const medianPpsqft = zipModel ? `$${Math.round(zipModel.median_buy_price_per_sqft)}` : '—';
+  const flipCount = zipModel ? zipModel.flip_count : 0;
+
   const scoreRows = [
-    { component: 'Price Position', earned: opp.price_position_score, max: 40, reason: opp.price_position_score >= 25 ? 'Below ZIP median buy price' : opp.price_position_score >= 10 ? 'Within ZIP typical range' : 'Above ZIP typical range' },
-    { component: '$/SqFt', earned: opp.ppsqft_score, max: 20, reason: opp.ppsqft_score >= 12 ? 'Below median $/sqft' : opp.ppsqft_score >= 5 ? 'Near median $/sqft' : 'At or above median $/sqft' },
-    { component: 'Distress Signals', earned: opp.distress_score, max: 25, reason: opp.distress_keywords_found ? `Keywords: ${opp.distress_keywords_found}` : 'No distress keywords found' },
-    { component: 'Market Timing', earned: opp.timing_score, max: 20, reason: opp.days_on_market != null ? `Listed ${opp.days_on_market} days ago` : 'No list date' },
+    {
+      component: 'Price Position',
+      earned: opp.price_position_score,
+      max: 40,
+      source: 'Historical Flips',
+      reason: opp.price_position_score >= 25
+        ? `${formatPrice(opp.list_price)} is below ZIP median buy ${medianBuy} (based on ${flipCount} flips)`
+        : opp.price_position_score >= 10
+        ? `${formatPrice(opp.list_price)} is within ZIP typical range (median buy: ${medianBuy})`
+        : `${formatPrice(opp.list_price)} is above ZIP typical buy range (median: ${medianBuy})`
+    },
+    {
+      component: '$/SqFt',
+      earned: opp.ppsqft_score,
+      max: 20,
+      source: 'Historical Flips',
+      reason: opp.list_price_per_sqft
+        ? `$${Math.round(opp.list_price_per_sqft)}/sqft vs ZIP median ${medianPpsqft}/sqft from ${flipCount} flips`
+        : 'No sqft data available'
+    },
+    {
+      component: 'Distress Signals',
+      earned: opp.distress_score,
+      max: 25,
+      source: 'Active Listing',
+      reason: opp.distress_keywords_found
+        ? `Keywords found in listing remarks: ${opp.distress_keywords_found}`
+        : 'No distress keywords found in listing remarks'
+    },
+    {
+      component: 'Market Timing',
+      earned: opp.timing_score,
+      max: 20,
+      source: 'Active Listing',
+      reason: opp.days_on_market != null
+        ? `Listed ${opp.days_on_market} days ago${priceDrop ? ` + ${priceDrop}% price drop bonus` : ''}`
+        : 'No list date available'
+    },
   ];
 
   return (
@@ -115,13 +153,15 @@ export default function DealDetailPage() {
 
           {/* Score Breakdown */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Score Breakdown</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Score Breakdown</h2>
+            <p className="text-xs text-gray-400 mb-4">Scores are calculated by comparing this active listing against historical flip data in the same ZIP code</p>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-2 text-gray-500 font-medium">Component</th>
                   <th className="text-center py-2 text-gray-500 font-medium">Points</th>
                   <th className="text-center py-2 text-gray-500 font-medium">Max</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Data Source</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Reason</th>
                 </tr>
               </thead>
@@ -131,6 +171,15 @@ export default function DealDetailPage() {
                     <td className="py-2 font-medium text-gray-900">{row.component}</td>
                     <td className="py-2 text-center font-semibold text-blue-600">{row.earned}</td>
                     <td className="py-2 text-center text-gray-400">{row.max}</td>
+                    <td className="py-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        row.source === 'Historical Flips'
+                          ? 'bg-purple-50 text-purple-700'
+                          : 'bg-blue-50 text-blue-700'
+                      }`}>
+                        {row.source}
+                      </span>
+                    </td>
                     <td className="py-2 text-gray-500 text-xs">{row.reason}</td>
                   </tr>
                 ))}
@@ -138,6 +187,7 @@ export default function DealDetailPage() {
                   <td className="py-2 font-bold text-gray-900">Total</td>
                   <td className="py-2 text-center font-bold text-xl text-gray-900">{opp.total_score}</td>
                   <td className="py-2 text-center text-gray-400">105</td>
+                  <td></td>
                   <td></td>
                 </tr>
               </tbody>
